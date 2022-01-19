@@ -82,10 +82,6 @@ public class LSMRTree{
         }
     }
 
-    /**
-     * checks if last records to be inserted have been inserted, and C0 or C1 needs to be flushed without being full.
-     * later this could be initiated by a time limit, but doing it this way now in order to finish
-     */
     public void checkIfLastRecordsInserted() {
         if ((this.c0.getTotalRecordsHandled() == this.totalIncomingObjects) && !this.c0.levelIsEmpty()) {
             this.c0.setIsFull(true);
