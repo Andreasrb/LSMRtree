@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 /**
- * RTree created by bulk-loading (packing method of RTree, ordering done by Z-value
+ * RTree created by bulk-loading (packing method of RTree, ordering done by lowX-value)
  *
  * @author Mari Sofie Lerfaldet <marisler@stud.ntnu>
  */
