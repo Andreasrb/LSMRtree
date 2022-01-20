@@ -12,7 +12,7 @@ import rtree.base.RTreeRecord;
  */
 public class SFCRTreeRecord extends RTreeRecord implements Comparable<SFCRTreeRecord> {
 
-    private int lowX; // TODO: this need to change to correct value, not sure if int or double or ?
+    private int lowX; 
 
     public SFCRTreeRecord(MBR mbr, DataObject data) {
         super(mbr, data);
