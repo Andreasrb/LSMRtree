@@ -4,6 +4,8 @@ package rtree.base;
  * Minimum Bounding Rectangle for a data item/data record.
  *
  * @author Mari Sofie Lerfaldet <marisler@stud.ntnu.no>
+ *
+ * Modified by: Andreas Ringereide Berg <andrerb@stud.ntnu.no>
  */
 
 public class MBR {
@@ -48,9 +50,9 @@ public class MBR {
     }
 
     public double getArea(){
-        double area = 1.0;
-        area *= (this.high.getX() - this.low.getX());
-        area *= (this.high.getY() - this.low.getY());
+        double area;
+
+        area = Math.abs(this.high.getX() - this.low.getX()) * Math.abs(this.high.getY() - this.low.getY());
 
         return area;
     }
@@ -65,5 +67,28 @@ public class MBR {
 
     public int getLowX() {
         return (int)this.low.getX();
+    }
+
+    // Added by Andreas Ringereide Berg
+    public int getLowY() {
+        return (int)this.low.getY();
+    }
+
+    public int getHighX() {
+        return (int)this.high.getX();
+    }
+
+    public int getHighY() {
+        return (int)this.high.getY();
+    }
+
+    public int getMargin() {
+        return 2 * (this.getHighX() - this.getLowX() + this.getHighY() - this.getLowY());
+    }
+
+    public double calculateOverlap(MBR other) {
+        float xOverlap = Math.max(0, Math.min(this.high.getX(), other.high.getX()) - Math.max(this.low.getX(), other.low.getX()));
+        float yOverlap = Math.max(0, Math.min(this.high.getY(), other.high.getY()) - Math.max(this.low.getY(), other.low.getY()));
+        return xOverlap * yOverlap;
     }
 }

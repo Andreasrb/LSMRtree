@@ -3,6 +3,9 @@ package rtree.base;
 import rtree.guttmann.GuttmannRTree;
 import rtree.guttmann.GuttmannRTreeNode;
 import rtree.guttmann.GuttmannRTreeRecord;
+import rtree.merging.MergeNode;
+import rtree.merging.MergeRecord;
+import rtree.merging.MergeTreeStructure;
 import rtree.seededClustering.SFCRTreeNode;
 import rtree.seededClustering.SFCRTreeRecord;
 import rtree.seededClustering.SFCRTreeStructure;
@@ -16,6 +19,8 @@ import java.util.ArrayList;
  * Based on Rtree introduced by Guttman
  *
  * @author Mari Sofie Lerfaldet <marisler@stud.ntnu.no>
+ *
+ * Modified by: Andreas Ringereide Berg <andrerb@stud.ntnu.no> <
  */
 public abstract class RTreeStructure {
 
@@ -159,7 +164,7 @@ public abstract class RTreeStructure {
     }
 
     protected void quadraticSplit(RTreeNode node, ArrayList<RTreeNode> nodesAfterSplit) {
-        incrementSplitCount();
+        //incrementSplitCount();
 
         RTreeNode node1 = createNodeWithoutRecords(node.getHeight());
         RTreeNode node2 = createNodeWithoutRecords(node.getHeight());
@@ -328,6 +333,9 @@ public abstract class RTreeStructure {
             if (this instanceof GuttmannRTree) {
                 GuttmannRTreeNode adjNode = (GuttmannRTreeNode) adjustedNode;
                 updatedRecord = new GuttmannRTreeRecord(adjNode.getMbr(), adjNode);
+            } else if (this instanceof MergeTreeStructure) {
+                MergeNode mergeNode = (MergeNode) adjustedNode;
+                updatedRecord = new MergeRecord(mergeNode.getMbr(), mergeNode);
             }
             else {
                 SFCRTreeNode adjNode = (SFCRTreeNode) adjustedNode;
@@ -360,5 +368,6 @@ public abstract class RTreeStructure {
     public int getSplitCount() {
         return this.splitCount;
     }
+
 }
 
