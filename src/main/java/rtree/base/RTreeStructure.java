@@ -369,5 +369,9 @@ public abstract class RTreeStructure {
         return this.splitCount;
     }
 
+    public void setSplitCount(int splitCount) {
+        this.splitCount = splitCount;
+    }
+
 }
 

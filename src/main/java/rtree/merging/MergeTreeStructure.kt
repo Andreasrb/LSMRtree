@@ -2,7 +2,7 @@ package rtree.merging
 
 import rtree.base.*
 import rtree.utilities.ImportRealData
-import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.system.measureTimeMillis
 import kotlin.math.pow
 
@@ -10,12 +10,6 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
     RTreeStructure(dimensions, m, M) {
     var recordCount = 0
     private var nodesAccessed = 0
-
-    var overlapCriterionTrue = 0
-    var overlapCriterionFalse = 0
-    var timeSpentCalculatingOverlap: Long = 0
-    var timeSpentCalculatingAreaIncrease: Long = 0
-    var timeSpentSplitting: Long = 0
     var axisChosen = Pair(0, 0)
 
     override fun createNodeWithoutRecords(height: Int): MergeNode {
@@ -82,8 +76,6 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
     }
 
     private var hasNewRoot: Boolean = false
-
-
     /**
      * Quadratic split equal to the one in RTreeStructure, amended to work with splitting multiple times at once.
      */
@@ -140,18 +132,28 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
      *
      * l is given by l = (L * m) / (M + 1)
      */
-    private fun chooseSplitAxis(node: MergeNode, parent: MergeNode?): ArrayList<MergeNode> {
+    private fun chooseSplitAxis(node: MergeNode, parent: MergeNode?, prevSplitAxis: Int = 0): ArrayList<MergeNode> {
         incrementSplitCount()
         var bestSplit: Pair<Int, Int>? = null
-        var bestGoodness = Double.MAX_VALUE
+        //var bestGoodness = Double.MAX_VALUE
+        var bestGoodness: Triple<Double, Double, Double> = Triple(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE)
 
         val entries = node.mergeRecords
         val m = getm()
         val M = getM()
-        val l: Int = ceil(((entries.size * m) / (M + 1)).toDouble()).toInt()
+        val l: Int = floor(((entries.size * m) / (M + 1)).toDouble()).toInt()
 
-        val sortedEntriesX = entries.sortedBy { it.mbr.low.x }
-        val sortedEntriesY = entries.sortedBy { it.mbr.low.y }
+        val sortedEntriesX: List<MergeRecord>
+        val sortedEntriesY: List<MergeRecord>
+        if (prevSplitAxis == 0) {
+            sortedEntriesX = entries.sortedBy { it.mbr.low.x }
+            sortedEntriesY = entries.sortedBy { it.mbr.low.y }
+        } else {
+            sortedEntriesY = entries.sortedBy { it.mbr.low.y }
+            sortedEntriesX = entries.sortedBy { it.mbr.low.x }
+        }
+
+
 
         for (axis in 0..1) {
             val sortedEntries = if (axis == 0) sortedEntriesX else sortedEntriesY
@@ -167,22 +169,30 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
                 }
 
                 val areaValue = leftMBR.area + rightMBR.area
-                val marginValue = leftMBR.margin + rightMBR.margin
-                val overlapValue = overlap(leftMBR, rightMBR)
-                val goodness = areaValue - overlapValue - marginValue
+                val marginValue = (leftMBR.margin + rightMBR.margin).toDouble()
+                val overlapValue = overlap(leftMBR, rightMBR).toDouble()
+                //val goodness = areaValue - overlapValue.toDouble() - marginValue.toDouble()
+                val goodness = Triple(overlapValue, areaValue, marginValue)
 
-                if (goodness < bestGoodness) {
+                /*if (goodness < bestGoodness) {
+                    bestGoodness = goodness
+                    bestSplit = Pair(axis, k)
+                }*/
+                if (goodness.first < bestGoodness.first ||
+                    (goodness.first == bestGoodness.first && goodness.second < bestGoodness.second) ||
+                    (goodness.first == bestGoodness.first && goodness.second == bestGoodness.second && goodness.third < bestGoodness.third)) {
                     bestGoodness = goodness
                     bestSplit = Pair(axis, k)
                 }
+
             }
         }
 
         val axis = bestSplit!!.first
-        if (axis == 0) {
-            axisChosen = Pair(axisChosen.first + 1, axisChosen.second)
+        axisChosen = if (axis == 0) {
+            Pair(axisChosen.first + 1, axisChosen.second)
         } else {
-            axisChosen = Pair(axisChosen.first, axisChosen.second + 1)
+            Pair(axisChosen.first, axisChosen.second + 1)
         }
         val k = bestSplit.second
         val finalSortedEntries = if (axis == 0) sortedEntriesX else sortedEntriesY
@@ -197,13 +207,13 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
         node2.calculateAndUpdateMBR()
 
         val nodesAfterSplit = ArrayList<MergeNode>()
-        if (node1.records.size > getM()) {
-            nodesAfterSplit.addAll(chooseSplitAxis(node1, parent))
+        if (node1.records.size > M) {
+            nodesAfterSplit.addAll(chooseSplitAxis(node1, parent, axis))
         } else {
             nodesAfterSplit.add(node1)
         }
-        if (node2.records.size > getM()) {
-            nodesAfterSplit.addAll(chooseSplitAxis(node2, parent))
+        if (node2.records.size > M) {
+            nodesAfterSplit.addAll(chooseSplitAxis(node2, parent, axis))
         } else {
             nodesAfterSplit.add(node2)
         }
@@ -258,14 +268,37 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
     /**
      * Creates a bounding box based on a list of entries
      * */
-    private fun boundingBox(entries: ArrayList<MergeRecord>): MBR {
+    /*private fun boundingBox(entries: ArrayList<MergeRecord>): MBR {
         val lowX = entries.minOf { it.mbr.low.x }
         val lowY = entries.minOf { it.mbr.low.y }
         val highX = entries.maxOf { it.mbr.high.x }
         val highY = entries.maxOf { it.mbr.high.y }
 
         return MBR(floatArrayOf(lowX, lowY), floatArrayOf(highX, highY))
+    }*/
+
+    private fun boundingBox(entries: List<MergeRecord>): MBR {
+        if (entries.isEmpty()) {
+            throw IllegalArgumentException("Cannot compute bounding box of empty list")
+        }
+
+        var lowX = entries[0].mbr.low.x
+        var lowY = entries[0].mbr.low.y
+        var highX = entries[0].mbr.high.x
+        var highY = entries[0].mbr.high.y
+
+        for (i in 1 until entries.size) {
+            val mbr = entries[i].mbr
+            lowX = minOf(lowX, mbr.low.x)
+            lowY = minOf(lowY, mbr.low.y)
+            highX = maxOf(highX, mbr.high.x)
+            highY = maxOf(highY, mbr.high.y)
+        }
+
+        return MBR(floatArrayOf(lowX, lowY), floatArrayOf(highX, highY))
     }
+
+
 
     /**
      * Calculates the overlap between two MBRs
@@ -298,7 +331,7 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
         }
 
         this.recordCount += insertTree.recordCount
-
+        this.splitCount += insertTree.splitCount
     }
 
     /**
@@ -331,19 +364,13 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
                     var mergeNode: MergeNode? = null
                     var overlapCriterion = false
                     if ((record.child!!.height + 1) < root.height) {
-                        val time = measureTimeMillis {
                             mergeNode = areaCriterion(root, record)?.child
                             mergeNode?.insertionQueue?.add(record)
-                        }
-                        timeSpentCalculatingAreaIncrease += time
                     } else if ((record.child!!.height + 1) == root.height) {
-                        val time = measureTimeMillis {
                             overlapCriterion = overlapCriterion(root, record)
                             if (overlapCriterion) {
                                 root.localInsertionQueue.add(record)
-                            }
                         }
-                        timeSpentCalculatingOverlap += time
                     }
 
                     if ((record.child!!.height + 1) > root.height || record.child!!.records.size < getm() || (mergeNode == null && !overlapCriterion)) {
@@ -370,10 +397,7 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
         if (root.records.size > 0) {
             root.calculateAndUpdateMBR()
         }
-        val time = measureTimeMillis {
-            multipleSplit(root, parent)
-        }
-        timeSpentSplitting += time
+        multipleSplit(root, parent)
     }
 
     /**
@@ -403,8 +427,9 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
         var minimumAreaIncrease = Double.MAX_VALUE
         var minimumAreaIncreaseRecord: MergeRecord? = null
         for (record in currentNode.mergeRecords) {
-            if (record.mbr.getAreaEnlargement(insertionEntry.mbr) < minimumAreaIncrease) {
-                minimumAreaIncrease = record.mbr.getAreaEnlargement(insertionEntry.mbr)
+            val potentialIncrease = record.mbr.getAreaEnlargement(insertionEntry.mbr)
+            if (potentialIncrease < minimumAreaIncrease) {
+                minimumAreaIncrease = potentialIncrease
                 minimumAreaIncreaseRecord = record
             }
         }
@@ -414,23 +439,19 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
             if (minimumAreaIncreaseRecord == null) {
                 minimumAreaIncreaseRecord = currentNode.mergeRecords.first()
             }
+            /*
             val mbr = boundingBox(arrayListOf(minimumAreaIncreaseRecord, insertionEntry))
             var overlapIncrease = 0.0
             for (record in currentNode.mergeRecords) {
                 if (record.mbr.isOverlapping(mbr) && record.mbr != minimumAreaIncreaseRecord.mbr) {
                     overlapIncrease += record.mbr.calculateOverlap(mbr)
                 }
-            }
+            }*/
             minimumAreaIncreaseRecord.mbr.calculateOverlap(insertionEntry.mbr)
         }
     }
 
-    /**
-     * Checks if the area enlargement of inserting a whole subtree into any child node of currentNode is smaller or
-     * equal to th area enlargement of inserting each individual entry of the subtree in a child node. If this is true,
-     * we can insert a whole subtree into a node.
-     */
-    private fun areaCriterion(currentNode: MergeNode, insertionEntry: MergeRecord): MergeRecord? {
+    /*private fun areaCriterion(currentNode: MergeNode, insertionEntry: MergeRecord): MergeRecord? {
         var wholeSubtreeEnlargement = Double.MAX_VALUE
         var selectedRecord: MergeRecord? = null
 
@@ -473,6 +494,44 @@ class MergeTreeStructure(dimensions: Int, m: Int, M: Int) :
             return selectedRecord
         }
         return null
+    }*/
+
+    /**
+     * Checks if the area enlargement of inserting a whole subtree into any child node of currentNode is smaller or
+     * equal to th area enlargement of inserting each individual entry of the subtree in a child node. If this is true,
+     * we can insert a whole subtree into a node.
+     */
+    private fun areaCriterion(currentNode: MergeNode, insertionEntry: MergeRecord): MergeRecord? {
+        val childRecords = currentNode.mergeRecords
+        val subtreeEntries = insertionEntry.child?.mergeRecords.orEmpty()
+
+        // Step 1: Find best record for inserting the whole subtree
+        val bestWholeSubtreeRecord = childRecords.minByOrNull {
+            it.mbr.getAreaEnlargement(insertionEntry.mbr)
+        }
+        val wholeSubtreeEnlargement = bestWholeSubtreeRecord?.mbr?.getAreaEnlargement(insertionEntry.mbr) ?: Double.MAX_VALUE
+
+        // Step 2: Simulate inserting individual entries
+        val newMBRs = mutableMapOf<MergeRecord, MBR>()
+
+        for (entry in subtreeEntries) {
+            val bestRecord = childRecords.minByOrNull { it.mbr.getAreaEnlargement(entry.mbr) } ?: continue
+            val currentMBR = newMBRs[bestRecord] ?: bestRecord.mbr
+            val updatedMBR = computeMBR(listOf(currentMBR, entry.mbr))
+            newMBRs[bestRecord] = updatedMBR
+        }
+
+        // Step 3: Calculate total area enlargement for individual insertions
+        val singleEntryTotalAreaEnlargement = newMBRs.entries.sumOf { (record, newMBR) ->
+            newMBR.area - record.mbr.area
+        }
+
+        // Step 4: Decide based on area criterion
+        return if (wholeSubtreeEnlargement <= singleEntryTotalAreaEnlargement) {
+            bestWholeSubtreeRecord
+        } else {
+            null
+        }
     }
 
     private fun computeMBR(mbrs: List<MBR>): MBR {

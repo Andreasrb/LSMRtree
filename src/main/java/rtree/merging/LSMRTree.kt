@@ -186,4 +186,13 @@ class LSMRTree(
     fun getRecordCount(): Int {
         return memTable.recordCount + ssTables.sumOf { it.recordCount }
     }
+
+    fun getSplitCount(): Int = ssTables.sumOf { it.splitCount } + memTable.splitCount
+
+    fun clear() {
+        memTable = MergeTreeStructure(2, minRecords, maxRecords)
+        memTable.createEmptyRoot()
+        ssTables.clear()
+        timeSpentMerging = 0L
+    }
 }

@@ -21,19 +21,13 @@ public class MBR {
         this.high = new Point(mbr.getHigh().getX(), mbr.getHigh().getY());
     }
 
-    public double getAreaEnlargement(MBR newMBR){
-        float xLow = Float.min(this.low.getX(), newMBR.getLow().getX());
-        float yLow = Float.min(this.low.getY(), newMBR.getLow().getY());
-        float xHigh = Float.max(this.high.getX(), newMBR.getHigh().getX());
-        float yHigh = Float.max(this.high.getY(), newMBR.getHigh().getY());
+    public double getAreaEnlargement(MBR newMBR) {
+        float xLow = Math.min(this.low.getX(), newMBR.getLow().getX());
+        float yLow = Math.min(this.low.getY(), newMBR.getLow().getY());
+        float xHigh = Math.max(this.high.getX(), newMBR.getHigh().getX());
+        float yHigh = Math.max(this.high.getY(), newMBR.getHigh().getY());
 
-        float[] low = {xLow, yLow};
-        float[] high = {xHigh, yHigh};
-
-        MBR mbr = new MBR(low, high);
-
-        double newArea = mbr.getArea();
-
+        double newArea = (xHigh - xLow) * (yHigh - yLow);
         return newArea - this.getArea();
     }
 
